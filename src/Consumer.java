@@ -5,6 +5,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.DeliverCallback;
 import org.json.JSONObject;
+import com.rabbitmq.client.AMQP;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.PreparedStatement;
@@ -24,6 +25,8 @@ public class Consumer {
 
             DeliverCallback deliverCallback = (consumerTag, delivery) -> {
                 String message = new String(delivery.getBody(), StandardCharsets.UTF_8);
+                long deliveryTag = delivery.getEnvelope().getDeliveryTag();
+
                 System.out.println("[x] Received: " + message);
 
                 JSONObject data = new JSONObject(message);
@@ -54,10 +57,16 @@ public class Consumer {
 
                         int rowsAffected = insertStatement.executeUpdate();
                         System.out.println("[x] Inserted/Updated " + rowsAffected + " rows from " + branch);
+
+                        channel.basicAck(deliveryTag,false);
+                        System.out.println("[ACK] Message acknowledged (Removed from queue)");
                     }
                 } catch (Exception e) {
                     System.out.println("[ERROR] Failed to insert from " + branch);
                     e.printStackTrace();
+
+                    channel.basicNack(deliveryTag, false, true);
+                    System.out.println("[NACK] Message rejected and requeued");
                 }
             };
 
